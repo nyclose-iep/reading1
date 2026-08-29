@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>소리 내어 읽기</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* =========================================================================
+   색·크기 변수 — 여기만 고치면 전체 인상이 바뀝니다.
+   「무대 위의 한 문장」 — 어두운 남색 무대 위에 종이 한 장만 밝게 둡니다.
+   ========================================================================= */
+:root{
+  --fs:18px;               /* 화면 기본 글자 크기 */
+  --sfs:2.6rem;            /* 읽을 문장 크기 — 설정에서 바뀝니다 */
+
+  --bg-1:#131f3d;
+  --bg-2:#22376a;
+  --bg-3:#2e4a86;
+
+  --paper:#fffdf6;
+  --paper-2:#f6f1e4;
+  --ink:#17203a;
+  --ink-soft:#5a678a;
+  --line:#e2dbc9;
+
+  --ok:#1c8a5f;   --ok-bg:#ddf2e6;
+  --near:#a97505; --near-bg:#fbeed0;
+  --miss:#c2434b; --miss-bg:#fbe1e2;
+
+  --gold:#f0a92c;
+  --mic:#2f6bdc;
+  --rec:#d33b43;
+
+  --r:20px;
+  --shadow:0 16px 40px rgba(6,14,34,.34);
+  --focus:#ffd166;
+}
+html{ font-size:var(--fs); }
+*,*::before,*::after{ box-sizing:border-box; }
+
+body{
+  margin:0; min-height:100%;
+  color:var(--ink);
+  font-family:'Pretendard Variable','Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  font-size:1rem; line-height:1.7;
+  background:
+    radial-gradient(900px 520px at 50% -8%, rgba(255,236,190,.22), rgba(255,236,190,0) 70%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
+  background-attachment:fixed;
+  -webkit-text-size-adjust:100%;
+}
+h1,h2,h3,h4{ margin:0; line-height:1.35; letter-spacing:-.02em; word-break:keep-all; }
+p{ margin:.35rem 0; }
+button{ font:inherit; color:inherit; cursor:pointer; border:none; transition:.16s ease; }
+input,textarea,select{ font:inherit; color:inherit; }
+:focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:10px; }
+
+.app{ max-width:920px; margin:0 auto; padding:.8rem .8rem 5.2rem; }
+
+/* ══ 위쪽 고정 줄 — 점수는 늘 보입니다 ═══════════════════════════ */
+.bar{
+  position:sticky; top:0; z-index:30;
+  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  padding:.55rem .7rem; margin:0 -.2rem .8rem;
+  background:rgba(19,31,61,.82); backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.14); border-radius:16px;
+}
+.brand{ color:#fff; font-weight:800; font-size:1.05rem; letter-spacing:-.03em; }
+.brand span{ color:#ffd79a; font-weight:600; font-size:.82rem; display:block; letter-spacing:0; }
+.numbox{ display:flex; align-items:center; gap:.35rem; color:#cfe0ff; font-size:.85rem; }
+.numbox input{
+  width:3.4rem; padding:.28rem .4rem; text-align:center; font-weight:700;
+  border-radius:10px; border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.1); color:#fff;
+}
+.score{
+  margin-left:auto; position:relative;
+  display:flex; align-items:baseline; gap:.3rem;
+  padding:.3rem .85rem; border-radius:999px;
+  background:linear-gradient(180deg,#ffd88a,#f0a92c); color:#4a2f00;
+  box-shadow:0 6px 18px rgba(240,169,44,.35);
+}
+.score b{ font-size:1.6rem; font-weight:800; letter-spacing:-.03em; }
+.score i{ font-style:normal; font-weight:700; font-size:.9rem; }
+.pop{
+  position:absolute; right:.6rem; top:-.2rem; pointer-events:none;
+  font-weight:800; color:#fff5d8; text-shadow:0 2px 8px rgba(0,0,0,.45); opacity:0;
+}
+.pop.go{ animation:pop 1.1s ease-out forwards; }
+@keyframes pop{
+  0%{ opacity:0; transform:translateY(0) scale(.8); }
+  25%{ opacity:1; transform:translateY(-14px) scale(1.15); }
+  100%{ opacity:0; transform:translateY(-40px) scale(1); }
+}
+
+/* ══ 탭 ══════════════════════════════════════════════════════════ */
+nav.tabs{ display:flex; gap:.4rem; margin-bottom:.8rem; }
+nav.tabs button{
+  flex:1; padding:.55rem .3rem; border-radius:14px;
+  background:rgba(255,255,255,.1); color:#dce7ff; font-weight:700; font-size:.95rem;
+  border:1px solid rgba(255,255,255,.14);
+}
+nav.tabs button[aria-selected="true"]{ background:var(--paper); color:var(--ink); border-color:transparent; }
+
+/* ══ 카드 ════════════════════════════════════════════════════════ */
+.card{
+  background:var(--paper); border-radius:var(--r); padding:1.1rem 1rem;
+  box-shadow:var(--shadow); margin-bottom:.9rem;
+}
+.card h2{ font-size:1.15rem; margin-bottom:.2rem; }
+.hint{ color:var(--ink-soft); font-size:.9rem; }
+.sec{ font-size:.82rem; font-weight:800; color:var(--ink-soft); margin:1rem 0 .35rem; }
+textarea, input.txt, select{
+  width:100%; padding:.6rem .7rem; border-radius:12px;
+  border:1.5px solid var(--line); background:#fff; line-height:1.65;
+}
+textarea{ resize:vertical; }
+.row{ display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+
+.btn{
+  padding:.6rem 1rem; border-radius:14px; font-weight:700;
+  background:var(--paper-2); color:var(--ink); border:1.5px solid var(--line);
+}
+.btn:hover{ background:#efe8d7; }
+.btn.pri{ background:linear-gradient(180deg,#3b7bef,#2f6bdc); color:#fff; border-color:transparent;
+          box-shadow:0 8px 20px rgba(47,107,220,.3); }
+.btn.stop{ background:linear-gradient(180deg,#e6565e,#cc353d); color:#fff; border-color:transparent;
+           box-shadow:0 8px 20px rgba(204,53,61,.3); }
+.btn.pri:hover,.btn.stop:hover{ filter:brightness(1.06); }
+.btn.big{ flex:1; min-width:9rem; padding:.95rem 1rem; font-size:1.1rem; border-radius:16px; }
+.btn.ghost{ background:transparent; }
+.btn:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; filter:none; }
+.btn.sm{ padding:.34rem .7rem; font-size:.86rem; border-radius:10px; }
+
+/* ══ 읽기 화면 ═══════════════════════════════════════════════════ */
+.progress{ display:flex; align-items:center; gap:.5rem; margin-bottom:.55rem; flex-wrap:wrap; }
+.dots{ display:flex; gap:.22rem; flex-wrap:wrap; }
+.dot{ width:.62rem; height:.62rem; border-radius:50%; background:rgba(255,255,255,.26); }
+.dot.done{ background:var(--gold); }
+.dot.now{ background:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.3); }
+.pcount{ color:#cfe0ff; font-size:.9rem; font-weight:700; }
+
+.sheet{
+  background:var(--paper); border-radius:var(--r); box-shadow:var(--shadow);
+  padding:1.6rem 1.1rem; min-height:11rem;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.sentence{
+  font-size:var(--sfs); font-weight:700; line-height:1.6; text-align:center;
+  word-break:keep-all; letter-spacing:-.01em;
+}
+/* 낱말은 붙여 두고, 글자마다 따로 칠합니다 */
+.wd{ display:inline-block; margin:.1em .3em; }
+.sy{ display:inline-block; padding:.02em .05em; border-radius:.18em; transition:background .18s ease, color .18s ease; }
+.sy.ok{ background:var(--ok-bg); color:var(--ok); }
+.sy.near{ background:var(--near-bg); color:var(--near); }
+.sy.miss{ background:var(--miss-bg); color:var(--miss); box-shadow:inset 0 -.12em 0 var(--miss); }
+.scored .sy{ cursor:pointer; }
+.fixing .sy{ box-shadow:inset 0 0 0 1.5px rgba(23,32,58,.18); }
+.fixing .sy.miss{ box-shadow:inset 0 0 0 1.5px rgba(194,67,75,.5); }
+
+/* 읽는 도중 들리는 말 */
+.live{
+  margin-top:1rem; width:100%; max-width:34rem; text-align:center;
+  padding:.55rem .7rem; border-radius:14px; background:var(--paper-2);
+  color:var(--ink-soft); font-size:1rem; min-height:2.6rem; word-break:break-all;
+}
+.live b{ color:var(--ink); font-weight:700; }
+
+/* 상태 알림 줄 */
+.statusbar{
+  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  padding:.7rem .9rem; border-radius:14px; margin-bottom:.7rem; font-weight:700;
+}
+.statusbar.rec{ background:#fdeaea; color:#a02a31; border:1.5px solid #f3bfc2; }
+.statusbar.mark{ background:#e8f0ff; color:#20458f; border:1.5px solid #c3d6f7; }
+.reddot{
+  width:.85rem; height:.85rem; border-radius:50%; background:var(--rec); flex:none;
+  box-shadow:0 0 0 0 rgba(211,59,67,.6); animation:blink 1.2s ease-out infinite;
+}
+@keyframes blink{
+  0%{ box-shadow:0 0 0 0 rgba(211,59,67,.55); }
+  70%{ box-shadow:0 0 0 .7rem rgba(211,59,67,0); }
+  100%{ box-shadow:0 0 0 0 rgba(211,59,67,0); }
+}
+.rectime{ margin-left:auto; font-variant-numeric:tabular-nums; font-size:1.05rem; }
+
+/* 채점 방법 고르기 */
+.modepick{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.modepick button{
+  flex:1; min-width:11rem; text-align:left; padding:.7rem .85rem;
+  border-radius:16px; border:2px solid var(--line); background:#fff;
+}
+.modepick button b{ display:block; font-size:1.02rem; }
+.modepick button small{ display:block; color:var(--ink-soft); font-size:.83rem; line-height:1.45; font-weight:600; }
+.modepick button[aria-pressed="true"]{ border-color:var(--mic); background:#f2f7ff; }
+.modepick button[aria-pressed="true"] b{ color:var(--mic); }
+.modepick button:disabled{ opacity:.45; cursor:not-allowed; }
+
+.meter{ display:flex; align-items:flex-end; gap:3px; height:2.4rem; margin-bottom:.7rem; }
+.meter i{ width:6px; height:6px; border-radius:3px; background:#e0d9c8; transition:height .07s linear; }
+
+/* 결과 */
+.result{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.gauge{
+  --p:0;
+  width:5.4rem; height:5.4rem; border-radius:50%; flex:none;
+  background:conic-gradient(var(--gc) calc(var(--p)*1%), #e9e3d3 0);
+  display:grid; place-items:center;
+}
+.gauge span{
+  width:4.1rem; height:4.1rem; border-radius:50%; background:var(--paper);
+  display:grid; place-items:center; font-weight:800; font-size:1.25rem; letter-spacing:-.03em;
+}
+.verdict{ font-size:1.15rem; font-weight:800; }
+
+/* 내가 읽은 것 */
+.heard{
+  padding:.6rem .8rem; border-radius:14px; background:var(--paper-2);
+  font-size:1.25rem; font-weight:700; line-height:1.8; word-break:break-all;
+}
+.heard .hs{ display:inline-block; padding:.02em .06em; border-radius:.18em; }
+.heard .hs.ok{ color:var(--ink); }
+.heard .hs.miss{ background:var(--miss-bg); color:var(--miss); }
+.heard .sp{ display:inline-block; width:.45em; }
+
+.banner{
+  border-radius:14px; padding:.6rem .8rem; font-size:.92rem; font-weight:600;
+  background:var(--near-bg); color:#7a5504; border:1px solid #f0dcae;
+}
+.banner.bad{ background:var(--miss-bg); color:#8f2a30; border-color:#f0c3c5; }
+.banner.good{ background:var(--ok-bg); color:#116043; border-color:#bfe4d0; }
+
+/* ══ 표 ══════════════════════════════════════════════════════════ */
+table{ width:100%; border-collapse:collapse; font-size:.92rem; }
+th,td{ padding:.42rem .5rem; border-bottom:1px solid var(--line); text-align:left; }
+th{ color:var(--ink-soft); font-size:.82rem; font-weight:700; }
+td.n,th.n{ text-align:right; font-variant-numeric:tabular-nums; }
+.tagpass{ color:var(--ok); font-weight:700; }
+.tagwait{ color:var(--ink-soft); }
+
+.chips{ display:flex; flex-wrap:wrap; gap:.35rem; }
+.chip{
+  padding:.28rem .6rem; border-radius:999px; font-size:.9rem; font-weight:700;
+  background:var(--miss-bg); color:var(--miss); border:1px solid #f0c3c5; cursor:pointer;
+}
+
+/* ══ 설정 ════════════════════════════════════════════════════════ */
+.opt{ display:flex; gap:.4rem; flex-wrap:wrap; margin:.15rem 0 .8rem; }
+.opt button{
+  padding:.4rem .8rem; border-radius:12px; font-weight:700; font-size:.92rem;
+  background:#fff; border:1.5px solid var(--line); color:var(--ink-soft);
+}
+.opt button[aria-pressed="true"]{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.setrow{ border-top:1px solid var(--line); padding-top:.7rem; }
+.setrow h4{ font-size:.98rem; }
+.setrow p{ font-size:.86rem; color:var(--ink-soft); margin:.1rem 0 .3rem; }
+
+/* ══ 아래 고정 바 ════════════════════════════════════════════════ */
+.foot{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  display:flex; gap:.4rem; justify-content:center; align-items:center; flex-wrap:wrap;
+  padding:.5rem .6rem calc(.5rem + env(safe-area-inset-bottom));
+  background:rgba(19,31,61,.9); backdrop-filter:blur(10px);
+  border-top:1px solid rgba(255,255,255,.14);
+}
+.foot button{
+  padding:.4rem .7rem; border-radius:12px; font-size:.86rem; font-weight:700;
+  background:rgba(255,255,255,.12); color:#e6eeff; border:1px solid rgba(255,255,255,.16);
+}
+.foot button[aria-pressed="true"]{ background:#fff; color:var(--ink); }
+
+.hidden{ display:none !important; }
+
+@media (max-width:520px){
+  .brand span{ display:none; }
+  .btn.big{ font-size:1rem; padding:.85rem .8rem; }
+}
+@media (prefers-reduced-motion:reduce){
+  *{ animation:none !important; transition:none !important; }
+}
+@media print{ .bar,.tabs,.foot{ display:none; } body{ background:#fff; } .card{ box-shadow:none; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══ 위쪽 고정 줄 ══ -->
+  <div class="bar">
+    <div class="brand">소리 내어 읽기<span>한 문장씩 또박또박</span></div>
+    <label class="numbox">번호
+      <input id="num" type="text" inputmode="numeric" maxlength="2" aria-label="관리번호">
+    </label>
+    <div class="score">
+      <b id="pts">0</b><i>점</i>
+      <div class="pop" id="pop"></div>
+    </div>
+  </div>
+
+  <!-- ══ 탭 ══ -->
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="read" aria-selected="true">읽기</button>
+    <button role="tab" data-tab="prep" aria-selected="false">이야기</button>
+    <button role="tab" data-tab="log"  aria-selected="false">기록</button>
+    <button role="tab" data-tab="set"  aria-selected="false">설정</button>
+  </nav>
+
+  <!-- ══════════════════ 읽기 ══════════════════ -->
+  <section id="p-read">
+
+    <div class="progress">
+      <div class="dots" id="dots"></div>
+      <div class="pcount" id="pcount"></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sentence" id="sent">이야기를 먼저 넣어 주세요.</div>
+      <div class="live hidden" id="live"></div>
+    </div>
+
+    <div class="card" style="margin-top:.9rem">
+
+      <div id="statusBar" class="statusbar hidden" role="status" aria-live="assertive"></div>
+      <div class="meter hidden" id="meter"></div>
+
+      <h4 class="sec" style="margin-top:0">어떻게 채점할까요?</h4>
+      <div class="modepick" id="modepick">
+        <button data-mode="voice">
+          <b>목소리로 채점</b>
+          <small>녹음해서 컴퓨터가 듣고 표시합니다</small>
+        </button>
+        <button data-mode="hand">
+          <b>손으로 채점</b>
+          <small>선생님이 틀린 글자를 눌러 표시합니다</small>
+        </button>
+      </div>
+
+      <div class="row" id="voiceBtns" style="margin-top:.7rem">
+        <button class="btn big pri" id="recStart">녹음 시작</button>
+        <button class="btn big stop" id="recStop" disabled>녹음 끝내기</button>
+      </div>
+      <div class="row hidden" id="handBtns" style="margin-top:.7rem">
+        <button class="btn big pri" id="handStart">손으로 채점 시작</button>
+        <button class="btn big stop" id="handStop" disabled>채점 끝내기</button>
+      </div>
+
+      <div class="row" style="margin-top:.7rem">
+        <button class="btn sm" id="listen">이 문장 들어 보기</button>
+        <button class="btn sm ghost" id="fix" disabled>채점 고치기</button>
+        <button class="btn sm ghost hidden" id="skip">이 문장 넘어가기</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <div class="result">
+        <div class="gauge" id="gauge" style="--gc:var(--ok)"><span id="gnum">0%</span></div>
+        <div>
+          <div class="verdict" id="verdict"></div>
+          <div class="hint" id="detail"></div>
+        </div>
+      </div>
+
+      <h4 class="sec" id="heardTitle">내가 읽은 것</h4>
+      <div class="heard" id="heard"></div>
+
+      <div class="row" style="margin-top:.9rem">
+        <button class="btn pri" id="next">다음 문장</button>
+        <button class="btn" id="again">다시 읽기</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="msgCard"><div class="banner" id="msg"></div></div>
+
+  </section>
+
+  <!-- ══════════════════ 이야기 ══════════════════ -->
+  <section id="p-prep" class="hidden">
+
+    <div class="card">
+      <h2>이야기 넣기</h2>
+      <p class="hint">글을 붙여넣으면 문장으로 나눠 드립니다. 예시 이야기로 먼저 해 봐도 됩니다.</p>
+
+      <h4 class="sec">1 · 글 붙여넣기</h4>
+      <textarea id="raw" rows="5" placeholder="여기에 이야기를 붙여넣으세요."></textarea>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn pri" id="split">문장으로 나누기</button>
+        <button class="btn" id="sample">예시 이야기 넣기</button>
+      </div>
+
+      <h4 class="sec">2 · AI에게 만들어 달라고 하기</h4>
+      <div class="banner" id="whereMsg" style="margin-bottom:.6rem"></div>
+      <div class="row">
+        <input class="txt" id="topic" style="flex:2;min-width:11rem" placeholder="무엇에 대한 이야기? (예: 편의점 첫 아르바이트)">
+        <select id="cnt" style="flex:1;min-width:6.5rem">
+          <option value="6">6문장</option>
+          <option value="10" selected>10문장</option>
+          <option value="14">14문장</option>
+        </select>
+        <select id="lvl" style="flex:1;min-width:8rem">
+          <option value="짧게 (한 문장 5~7 어절)">짧은 문장</option>
+          <option value="보통 (한 문장 8~10 어절)" selected>보통 문장</option>
+          <option value="조금 길게 (한 문장 11~13 어절)">조금 긴 문장</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn pri" id="gen">여기서 바로 만들기</button>
+        <button class="btn" id="copyPrompt">ChatGPT에 넣을 글 복사하기</button>
+      </div>
+      <p class="hint" id="genMsg" style="margin-top:.4rem"></p>
+    </div>
+
+    <div class="card">
+      <h2>문장 다듬기</h2>
+      <p class="hint">한 줄이 한 문장입니다. 너무 길면 줄을 나누고, 너무 짧으면 붙이세요.</p>
+      <input class="txt" id="title" placeholder="이야기 제목" style="margin-bottom:.5rem">
+      <textarea id="lines" rows="10" placeholder="한 줄에 한 문장씩"></textarea>
+      <p class="hint" id="lineInfo" style="margin:.4rem 0"></p>
+      <div class="row">
+        <button class="btn pri" id="start">이 이야기로 읽기 시작</button>
+        <button class="btn" id="makeLink">학생에게 보낼 주소 만들기</button>
+        <button class="btn ghost" id="copyStory">글로 복사하기</button>
+        <button class="btn ghost" id="tts2">첫 문장 들어 보기</button>
+      </div>
+      <p class="hint" id="copyMsg" style="margin-top:.4rem"></p>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════ 기록 ══════════════════ -->
+  <section id="p-log" class="hidden">
+
+    <div class="card">
+      <h2>오늘 읽은 것</h2>
+      <div id="sum" class="hint"></div>
+      <div style="overflow-x:auto;margin-top:.6rem">
+        <table id="tbl">
+          <thead><tr>
+            <th class="n">번호</th><th>문장</th><th class="n">읽은 횟수</th>
+            <th class="n">가장 잘한 정확도</th><th>통과</th><th class="n">얻은 점수</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>자주 걸린 낱말</h2>
+      <p class="hint">글자를 틀리게 읽은 낱말입니다. 눌러서 들어 볼 수 있습니다.</p>
+      <div class="chips" id="wrongList" style="margin-top:.5rem"></div>
+    </div>
+
+    <div class="card">
+      <h2>기록 챙기기</h2>
+      <p class="hint">모두 이 기기 안에서 처리됩니다. 밖으로 나가지 않습니다.</p>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn" id="saveJson">기록 파일로 저장</button>
+        <button class="btn" id="saveCsv">표(CSV)로 저장</button>
+        <button class="btn ghost" id="copyLog">기록 복사하기</button>
+      </div>
+      <p class="hint" id="fileMsg" style="margin-top:.4rem"></p>
+      <div class="row" style="margin-top:.9rem">
+        <button class="btn ghost" id="resetRec">이 이야기 기록만 지우기</button>
+        <button class="btn ghost" id="resetAll">점수까지 모두 지우기</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════ 설정 ══════════════════ -->
+  <section id="p-set" class="hidden">
+    <div class="card">
+      <h2>설정</h2>
+      <p class="hint">선생님이 학생에 맞게 고칩니다. 고른 값은 이 기기에 저장됩니다.</p>
+
+      <div class="setrow" style="margin-top:.8rem">
+        <h4>통과 기준</h4>
+        <p>글자를 이만큼 맞게 읽으면 다음 문장으로 넘어갑니다.</p>
+        <div class="opt" data-set="pass">
+          <button data-v="70">70%</button><button data-v="80">80%</button><button data-v="90">90%</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>기준에 못 미치면</h4>
+        <p>「처음부터」는 부담이 큽니다. 잘 읽는 학생에게만 쓰세요.</p>
+        <div class="opt" data-set="scope">
+          <button data-v="sentence">이 문장만 다시</button><button data-v="story">처음부터 다시</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>글자 하나에 주는 점수</h4>
+        <p>잘 읽은 글자 수만큼 점수가 쌓입니다.</p>
+        <div class="opt" data-set="ppw">
+          <button data-v="1">1점</button><button data-v="2">2점</button><button data-v="5">5점</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>한 번에 통과하면 덤</h4>
+        <div class="opt" data-set="bonus">
+          <button data-v="0">없음</button><button data-v="3">+3점</button><button data-v="5">+5점</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>문장 글자 크기</h4>
+        <div class="opt" data-set="sfs">
+          <button data-v="1">보통</button><button data-v="2">크게</button>
+          <button data-v="3">아주 크게</button><button data-v="4">최대</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>읽어 주는 속도</h4>
+        <div class="opt" data-set="rate">
+          <button data-v="70">느리게</button><button data-v="85">조금 느리게</button><button data-v="100">보통</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>목소리 막대 보이기</h4>
+        <p>목소리가 들어가는지 눈으로 보여 줍니다. 마이크가 말썽이면 꺼 보세요.</p>
+        <div class="opt" data-set="meter">
+          <button data-v="1">켜기</button><button data-v="0">끄기</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>마이크 계속 켜 두기</h4>
+        <p>한 번 허락받은 마이크를 수업이 끝날 때까지 붙잡아 둡니다. 권한 창이 되풀이해 뜨는 것을 줄여 줍니다.
+           켜 두면 탭에 녹음 표시가 계속 남지만, 「녹음 시작」을 누르기 전에는 아무것도 듣지 않습니다.</p>
+        <div class="opt" data-set="hold">
+          <button data-v="1">켜기</button><button data-v="0">끄기</button>
+        </div>
+      </div>
+
+      <div class="setrow">
+        <h4>세 번 못 넘으면 넘어가기 버튼</h4>
+        <div class="opt" data-set="skip">
+          <button data-v="1">보이기</button><button data-v="0">숨기기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>마이크가 안 될 때</h2>
+      <p class="hint">아래 단추를 누르면 무엇이 막고 있는지 하나씩 짚어 드립니다.</p>
+      <div class="row" style="margin:.6rem 0">
+        <button class="btn pri" id="micTest">마이크 진단하기</button>
+      </div>
+      <div id="verdictBox" class="banner hidden" style="margin-bottom:.7rem"></div>
+      <div id="diag" class="hint"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══ 아래 고정 바 ══ -->
+<div class="foot">
+  <span style="color:#9fb4dd;font-size:.82rem">화면 글자</span>
+  <button data-fs="16">가</button>
+  <button data-fs="18" aria-pressed="true">가</button>
+  <button data-fs="21">가</button>
+  <button data-fs="25">가</button>
+</div>
+
+<script>
+/* =========================================================================
+   [1] 기본값 — 선생님이 고칠 곳
+   ========================================================================= */
+const KEY = 'read-aloud-v1';
+const LANG = 'ko-KR';
+
+const DEF_SET = {
+  mode:'voice',      // 채점 방법: 'voice' 목소리 / 'hand' 손
+  pass:80,           // 통과 기준(%)
+  scope:'sentence',  // 못 넘겼을 때: 'sentence' 이 문장만 / 'story' 처음부터
+  ppw:1,             // 글자 하나당 점수
+  bonus:3,           // 한 번에 통과했을 때 덤
+  sfs:2,             // 문장 글자 크기 1~4
+  rate:85,           // 읽어 주는 속도(%)
+  meter:1,           // 목소리 막대
+  hold:1,            // 마이크를 계속 붙잡아 둘까 (권한 창 되풀이를 줄임)
+  skip:1             // 넘어가기 버튼
+};
+const SFS = { 1:'2rem', 2:'2.6rem', 3:'3.2rem', 4:'4rem' };
+
+/* 글자 판정 기준 — 자모(ㄱ ㅏ ㄱ) 단위로 견줍니다 */
+const OK_T = 0.85;    // 이 이상이면 「맞음」
+const NEAR_T = 0.55;  // 이 이상이면 「비슷」
+const INS_W = 0.4;    // 더듬거나 되풀이한 소리를 세는 무게 (1보다 작게)
+const MAX_SEC = 60;   // 녹음이 저절로 끝나는 시간(초)
+
+/* 예시 이야기 */
+const SAMPLE = {
+  title:'첫 출근',
+  sents:[
+    '오늘은 내가 처음으로 일하러 가는 날이다.',
+    '아침 여섯 시에 눈이 저절로 떠졌다.',
+    '어머니가 김밥을 싸 주셨다.',
+    '나는 가방에 김밥과 물병을 넣었다.',
+    '버스 정류장까지 걸어가는 길은 조용했다.',
+    '가게 문 앞에서 잠깐 숨을 크게 쉬었다.',
+    '사장님이 웃으면서 내 이름을 불러 주셨다.',
+    '나는 앞치마를 두르고 손을 깨끗이 씻었다.',
+    '처음에는 손이 떨렸지만 조금 지나니 괜찮아졌다.',
+    '집으로 돌아오는 길에 나는 조금 자랑스러웠다.'
+  ]
+};
+
+/* =========================================================================
+   [2] 한글 자모 · 닮은 정도 재기
+   ========================================================================= */
+const CHO  = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+const JONG = ' ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+
+function jamo(s){
+  let out = '';
+  for(const ch of s){
+    const c = ch.charCodeAt(0);
+    if(c >= 0xAC00 && c <= 0xD7A3){
+      const i = c - 0xAC00;
+      out += CHO[Math.floor(i/588)] + JUNG[Math.floor((i%588)/28)];
+      const j = i % 28;
+      if(j) out += JONG[j];
+    } else out += ch;
+  }
+  return out;
+}
+function norm(w){ return String(w||'').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase(); }
+function jlen(ch){ return Math.max(1, jamo(norm(ch)).length); }
+
+function lev(a, b){
+  const n = a.length, m = b.length;
+  if(!n) return m;
+  if(!m) return n;
+  let prev = Array.from({length:m+1}, (_,j)=>j), cur = new Array(m+1);
+  for(let i=1;i<=n;i++){
+    cur[0] = i;
+    for(let j=1;j<=m;j++){
+      const c = a[i-1] === b[j-1] ? 0 : 1;
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+c);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[m];
+}
+/* 문장 하나가 얼마나 닮았는지 0~1 — 인식 후보를 고를 때 씁니다 */
+function sim(t, h){
+  const a = jamo(norm(t)), b = jamo(norm(h));
+  if(!a.length && !b.length) return 1;
+  if(!a.length || !b.length) return 0;
+  return Math.max(0, 1 - lev(a,b) / Math.max(a.length, b.length));
+}
+
+/* =========================================================================
+   [3] 채점 — 낱말이 아니라 「글자(음절)」 하나하나를 봅니다
+   ─ 글자를 다시 자모로 펴서 견주므로 받침 하나가 빠진 것도 잡힙니다.
+     띄어쓰기는 무시하므로 붙여 읽어도 손해 보지 않습니다.
+   ========================================================================= */
+function grade(target, heardText){
+  /* 목표를 낱말 → 글자로 쪼갭니다. 소리 없는 문장부호는 채점하지 않습니다. */
+  const words = [];          /* 화면에 그릴 모양 : [[{ch, si}], …] */
+  const wordText = [];       /* 낱말 원문 */
+  const tSyl = [], tWord = [];
+  target.split(/\s+/).filter(Boolean).forEach((w, wi)=>{
+    const unit = [];
+    for(const ch of w){
+      if(norm(ch)){ unit.push({ ch, si:tSyl.length }); tSyl.push(ch); tWord.push(wi); }
+      else unit.push({ ch, si:-1 });
+    }
+    words.push(unit); wordText.push(w);
+  });
+
+  /* 들린 말도 글자로 쪼갭니다 (띄어쓰기 자리는 따로 기억) */
+  const hSyl = [], hRaw = [];
+  for(const ch of String(heardText||'')){
+    if(norm(ch)){ hRaw.push({ ch, si:hSyl.length }); hSyl.push(ch); }
+    else if(/\s/.test(ch)) hRaw.push({ ch:' ', si:-1 });
+  }
+
+  const A = [], ownA = [], B = [], ownB = [];
+  tSyl.forEach((ch, si)=>{ for(const c of jamo(norm(ch))){ A.push(c); ownA.push(si); } });
+  hSyl.forEach((ch, si)=>{ for(const c of jamo(norm(ch))){ B.push(c); ownB.push(si); } });
+
+  const lenA = tSyl.map(ch => jlen(ch)), lenB = hSyl.map(ch => jlen(ch));
+  const errA = tSyl.map(()=>0), errB = hSyl.map(()=>0);
+  const n = A.length, m = B.length;
+
+  const pack = (sims, hs, acc)=>({ words, wordText, tSyl, tWord, sims, heard:hs, acc });
+  if(!n) return pack(tSyl.map(()=>1), [], 1);
+  if(!m) return pack(tSyl.map(()=>0), [], 0);
+
+  /* 뒤쪽 글자를 빠뜨리는 값을 아주 조금 싸게 매깁니다.
+     여러 갈래가 비길 때 「앞에서부터 읽었다」는 쪽으로 붙어서,
+     앞부분만 읽고 멈춘 경우에도 읽은 데까지는 제대로 인정됩니다. */
+  const EPS = 1e-6, eq = (a,b) => Math.abs(a-b) < 1e-9;
+  const delC = k => 1 - EPS*k;
+
+  const d = [];
+  for(let i=0;i<=n;i++) d.push(new Float64Array(m+1));
+  for(let i=1;i<=n;i++) d[i][0] = d[i-1][0] + delC(i-1);
+  for(let j=1;j<=m;j++) d[0][j] = j;
+  for(let i=1;i<=n;i++){
+    for(let j=1;j<=m;j++){
+      const sub = d[i-1][j-1] + (A[i-1] === B[j-1] ? 0 : 1);
+      d[i][j] = Math.min(sub, d[i-1][j] + delC(i-1), d[i][j-1] + 1);
+    }
+  }
+
+  let i = n, j = m, hard = 0, soft = 0, guard = 0;
+  while((i > 0 || j > 0) && guard++ < n + m + 4){
+    if(i > 0 && j > 0 && A[i-1] === B[j-1] && eq(d[i][j], d[i-1][j-1])){ i--; j--; continue; }
+    if(i > 0 && j > 0 && eq(d[i][j], d[i-1][j-1] + 1)){          /* 다른 소리로 읽음 */
+      errA[ownA[i-1]] += 1; errB[ownB[j-1]] += 1; hard++; i--; j--; continue;
+    }
+    if(i > 0 && eq(d[i][j], d[i-1][j] + delC(i-1))){             /* 빠뜨리고 안 읽음 */
+      errA[ownA[i-1]] += 1; hard++; i--; continue;
+    }
+    if(j > 0){                                                   /* 없는 소리를 더 냄 */
+      if(i > 0) errA[ownA[i-1]] += INS_W;
+      errB[ownB[j-1]] += 1; soft++; j--; continue;
+    }
+    break;
+  }
+
+  const sims = tSyl.map((ch, si)=> Math.max(0, Math.min(1, 1 - errA[si]/lenA[si])));
+  const hs = hRaw.map(u => u.si < 0
+    ? { ch:' ', ok:true, sp:true }
+    : { ch:u.ch, ok: errB[u.si] / lenB[u.si] < 0.5, sp:false });
+  const acc = Math.max(0, Math.min(1, 1 - (hard + soft*INS_W)/n));
+  return pack(sims, hs, acc);
+}
+function markOf(s){ return s >= OK_T ? 'ok' : (s >= NEAR_T ? 'near' : 'miss'); }
+function accFromSims(g){
+  let num = 0, den = 0;
+  g.tSyl.forEach((ch, si)=>{ const L = jlen(ch); num += g.sims[si]*L; den += L; });
+  return den ? num/den : 0;
+}
+
+/* =========================================================================
+   [4] 저장되는 값
+   ========================================================================= */
+let S = {
+  num:'', points:0, title:'', sents:[], idx:0, linkSig:'',
+  rec:[],           /* 문장별 {t 시도, b 최고정확도, p 통과, e 얻은점수} */
+  wrong:{},         /* 낱말별 틀린 횟수 */
+  set:{...DEF_SET},
+  fs:18
+};
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      const o = JSON.parse(raw);
+      S = {...S, ...o, set:{...DEF_SET, ...(o.set||{})}};
+    }
+  }catch(e){}
+}
+let saveTimer = null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+  }, 200);
+}
+function blankRec(n){ return Array.from({length:n}, ()=>({ t:0, b:0, p:false, e:0 })); }
+
+/* =========================================================================
+   [5] 화면 만들기
+   ========================================================================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+let state = 'idle';        /* idle | listening | marking | scored */
+let cur = null;            /* 지금 채점 결과 */
+let fixing = false;        /* 손으로 고치는 중 */
+let voiceOK = true;        /* 이 기기에서 목소리 인식이 되는가 */
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function note(text, kind){
+  $('#msgCard').classList.remove('hidden');
+  $('#msg').className = 'banner' + (kind ? ' ' + kind : '');
+  $('#msg').textContent = text;
+}
+function clearNote(){ $('#msgCard').classList.add('hidden'); }
+
+function paint(){
+  $('#num').value = S.num || '';
+  $('#pts').textContent = S.points;
+  document.documentElement.style.setProperty('--sfs', SFS[S.set.sfs] || SFS[2]);
+  document.documentElement.style.setProperty('--fs', (S.fs||18) + 'px');
+  $$('.foot button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.fs === S.fs)));
+  $$('.opt').forEach(box=>{
+    const k = box.dataset.set;
+    box.querySelectorAll('button').forEach(b=>{
+      b.setAttribute('aria-pressed', String(String(S.set[k]) === b.dataset.v));
+    });
+  });
+  paintMode();
+}
+
+/* 채점 방법 고르기 */
+function paintMode(){
+  const m = S.set.mode;
+  $$('#modepick button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  $('#voiceBtns').classList.toggle('hidden', m !== 'voice');
+  $('#handBtns').classList.toggle('hidden', m !== 'hand');
+}
+function setMode(m){
+  if(m === 'voice' && !voiceOK) return;
+  if(state === 'listening' || state === 'marking') return;
+  S.set.mode = m; save(); paintMode(); renderRead();
+}
+
+function status(kind, html){
+  const el = $('#statusBar');
+  if(!kind){ el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.className = 'statusbar ' + kind;
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+}
+
+/* 단추 켜고 끄기 — 지금 무엇을 눌러야 하는지 한눈에 */
+function paintButtons(){
+  const has = S.sents.length > 0;
+  const listening = state === 'listening';
+  const marking = state === 'marking';
+  $('#recStart').disabled = !has || listening || marking;
+  $('#recStop').disabled  = !listening;
+  $('#handStart').disabled = !has || listening || marking;
+  $('#handStop').disabled  = !marking;
+  $('#listen').disabled = !has || listening;
+  $('#fix').disabled = (state !== 'scored');
+  $('#fix').textContent = fixing ? '고치기 끝내기' : '채점 고치기';
+  $$('#modepick button').forEach(b=>{
+    b.disabled = listening || marking || (b.dataset.mode === 'voice' && !voiceOK);
+  });
+}
+
+function renderRead(){
+  const n = S.sents.length;
+  const dots = $('#dots');
+  dots.innerHTML = '';
+  for(let k=0;k<n;k++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (S.rec[k] && S.rec[k].p ? ' done' : '') + (k === S.idx ? ' now' : '');
+    dots.appendChild(d);
+  }
+  $('#pcount').textContent = n ? (S.idx+1) + ' / ' + n + ' 문장' + (S.title ? ' · ' + S.title : '') : '';
+
+  const sent = $('#sent');
+  sent.className = 'sentence';
+  if(!n){
+    sent.textContent = '「이야기」 탭에서 글을 넣어 주세요.';
+    paintButtons();
+    return;
+  }
+
+  if((state === 'scored' || state === 'marking') && cur){
+    sent.innerHTML = '';
+    sent.classList.add('scored');
+    if(fixing) sent.classList.add('fixing');
+    cur.words.forEach(unit=>{
+      const wd = document.createElement('span');
+      wd.className = 'wd';
+      unit.forEach(u=>{
+        const s = document.createElement('span');
+        if(u.si < 0){ s.className = 'sy pun'; s.textContent = u.ch; }
+        else{
+          s.className = 'sy ' + markOf(cur.sims[u.si]);
+          s.textContent = u.ch;
+          s.dataset.si = u.si;
+          s.title = fixing ? '눌러서 맞음·틀림 바꾸기' : '눌러서 이 낱말 들어 보기';
+        }
+        wd.appendChild(s);
+      });
+      sent.appendChild(wd);
+    });
+  }else{
+    sent.textContent = S.sents[S.idx];
+  }
+
+  const tries = S.rec[S.idx] ? S.rec[S.idx].t : 0;
+  $('#skip').classList.toggle('hidden', !(S.set.skip && tries >= 3 && state === 'scored'));
+  paintButtons();
+}
+
+function showResult(){
+  const acc = Math.round(cur.acc * 100);
+  const pass = acc >= S.set.pass;
+  const okSyl = cur.sims.filter(s => s >= OK_T).length;
+  const total = cur.sims.length;
+  const pts = okSyl * S.set.ppw;
+  const tries = S.rec[S.idx].t;
+  const bonus = (pass && tries === 1) ? S.set.bonus : 0;
+  const already = S.rec[S.idx].p;
+
+  const g = $('#gauge');
+  g.style.setProperty('--p', acc);
+  g.style.setProperty('--gc', pass ? 'var(--ok)' : 'var(--near)');
+  $('#gnum').textContent = acc + '%';
+  $('#verdict').textContent = pass ? '통과!' : '조금만 더!';
+
+  let detail = '잘 읽은 글자 ' + okSyl + '개 / ' + total + '개';
+  if(pass && !already) detail += ' · 얻을 점수 ' + (pts + bonus) + '점' + (bonus ? ' (한 번에 통과 +' + bonus + ')' : '');
+  else if(pass && already) detail += ' · 이미 점수를 받은 문장이에요';
+  else detail += ' · ' + S.set.pass + '%가 되면 넘어갑니다';
+  $('#detail').textContent = detail;
+
+  /* 내가 읽은 것 — 들린 글자를 그대로 보여 줍니다 */
+  const box = $('#heard');
+  box.innerHTML = '';
+  $('#heardTitle').textContent = cur.byHand ? '선생님이 표시한 것' : '내가 읽은 것';
+  if(cur.byHand){
+    box.innerHTML = '<span class="hint">손으로 채점했습니다. 위 문장에서 빨간 글자가 틀리게 읽은 글자입니다.</span>';
+  }else if(!cur.heard.length){
+    box.innerHTML = '<span class="hint">들린 말이 없어요. 마이크에 가까이 대고 다시 읽어 보세요.</span>';
+  }else{
+    cur.heard.forEach(u=>{
+      const s = document.createElement('span');
+      if(u.sp){ s.className = 'sp'; }
+      else{ s.className = 'hs ' + (u.ok ? 'ok' : 'miss'); s.textContent = u.ch; }
+      box.appendChild(s);
+    });
+  }
+
+  $('#next').classList.toggle('hidden', !pass);
+  $('#again').textContent = pass ? '한 번 더 읽기' : (S.set.scope === 'story' ? '처음부터 다시 읽기' : '다시 읽기');
+  $('#resultCard').classList.remove('hidden');
+}
+
+/* =========================================================================
+   [6] 녹음하고 듣기
+   ========================================================================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+/* 권한 창이 되풀이해 뜨지 않도록, 인식기와 마이크를 「하나만 만들어 계속 씁니다」.
+   문장마다 새로 만들면 크롬이 그때마다 다시 물어보는 일이 생깁니다. */
+let recInst = null, curTarget = '', finals = [];
+let restarts = 0, stopWanted = false, autoStop = null, tick = null, t0 = 0, hardFail = false;
+let micStream = null, audioCtx = null, analyser = null, rafId = null;
+
+function buildMeter(){
+  const m = $('#meter');
+  if(m.children.length) return;
+  for(let i=0;i<20;i++) m.appendChild(document.createElement('i'));
+}
+
+/* 마이크는 한 번만 허락받고 계속 붙잡아 둡니다 */
+async function ensureMic(){
+  if(micStream && micStream.getAudioTracks().some(t => t.readyState === 'live')) return micStream;
+  micStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  return micStream;
+}
+function releaseMic(){
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if(audioCtx){ audioCtx.close().catch(()=>{}); audioCtx = null; analyser = null; }
+}
+
+async function startMeter(){
+  if(!S.set.meter || !navigator.mediaDevices) return;
+  try{
+    const st = await ensureMic();
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.createMediaStreamSource(st);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      src.connect(analyser);
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const bins = new Uint8Array(analyser.frequencyBinCount);
+    const bars = Array.from($('#meter').children);
+    $('#meter').classList.remove('hidden');
+    const draw = ()=>{
+      analyser.getByteFrequencyData(bins);
+      bars.forEach((b, k)=>{
+        const v = bins[Math.min(bins.length-1, k+1)] / 255;
+        b.style.height = (6 + v * 32) + 'px';
+        b.style.background = v > .12 ? 'var(--rec)' : '#e0d9c8';
+      });
+      rafId = requestAnimationFrame(draw);
+    };
+    draw();
+  }catch(e){ /* 막대는 없어도 읽기는 됩니다 */ }
+}
+function stopMeter(){
+  if(rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  $('#meter').classList.add('hidden');
+  if(!S.set.hold) releaseMic();          /* 계속 켜 두기를 껐을 때만 놓아 줍니다 */
+}
+
+function recBanner(){
+  const sec = Math.floor((Date.now() - t0)/1000);
+  status('rec',
+    '<span class="reddot"></span>' +
+    '<span><b>녹음 중입니다.</b> 지금 소리 내어 읽으세요. 다 읽으면 「녹음 끝내기」를 누릅니다.</span>' +
+    '<span class="rectime">' + sec + '초</span>');
+}
+
+/* 인식기도 하나만 만들어 되풀이해 씁니다 */
+function getRec(){
+  if(recInst) return recInst;
+  const r = new SR();
+  r.lang = LANG;
+  r.continuous = true;
+  r.interimResults = true;
+  r.maxAlternatives = 3;
+
+  r.onstart = ()=>{
+    t0 = Date.now();
+    recBanner();
+    clearInterval(tick); tick = setInterval(recBanner, 1000);
+    $('#live').classList.remove('hidden');
+    $('#live').textContent = '듣고 있어요…';
+    renderRead();
+    clearTimeout(autoStop);
+    autoStop = setTimeout(()=>{ if(state === 'listening') stopListen(); }, MAX_SEC*1000);
+  };
+
+  r.onresult = (ev)=>{
+    let interim = '';
+    for(let k = ev.resultIndex; k < ev.results.length; k++){
+      const res = ev.results[k];
+      if(res.isFinal){
+        /* 후보 가운데 읽을 문장과 가장 닮은 것을 고릅니다 */
+        let best = res[0].transcript, bestS = -1;
+        for(let a=0;a<res.length;a++){
+          const sc = sim(curTarget, res[a].transcript);
+          if(sc > bestS){ bestS = sc; best = res[a].transcript; }
+        }
+        finals.push(best.trim());
+      }else interim += res[0].transcript;
+    }
+    const live = (finals.join(' ') + ' ' + interim).trim();
+    $('#live').innerHTML = live ? '지금 들리는 말 : <b>' + escapeHtml(live) + '</b>' : '듣고 있어요…';
+  };
+
+  r.onerror = (ev)=>{
+    const e = ev.error;
+    if(e === 'no-speech'){
+      note('소리가 들리지 않았어요. 마이크에 조금 더 가까이 대고 다시 눌러 보세요.');
+    }else if(e === 'not-allowed' || e === 'service-not-allowed'){
+      note('마이크가 열리지 않았어요. 「설정」 탭의 「마이크 진단하기」를 누르면 무엇이 막고 있는지 알려 드립니다. 그동안은 「손으로 채점」으로 수업하실 수 있어요.', 'bad');
+      voiceOK = false; hardFail = true; S.set.mode = 'hand'; paintMode();
+    }else if(e === 'audio-capture'){
+      note('마이크를 찾지 못했어요. 마이크가 꽂혀 있는지 확인해 주세요.', 'bad');
+      voiceOK = false; hardFail = true; S.set.mode = 'hand'; paintMode();
+    }else if(e === 'network'){
+      note('목소리 인식은 인터넷이 있어야 합니다. 연결을 확인해 주세요.', 'bad');
+    }
+    stopWanted = true;
+  };
+
+  r.onend = ()=>{
+    if(state === 'listening' && !stopWanted && restarts < 8){
+      restarts++;
+      try{ r.start(); return; }catch(e){}
+    }
+    finishListen(finals.join(' ').trim());
+  };
+
+  recInst = r;
+  return r;
+}
+
+function startListen(){
+  if(!S.sents.length || state === 'listening') return;
+  clearNote();
+  $('#resultCard').classList.add('hidden');
+
+  if(!SR){
+    note('이 브라우저는 목소리 인식을 지원하지 않습니다. 「손으로 채점」을 골라 주세요.', 'bad');
+    voiceOK = false; setMode('hand'); paintButtons();
+    return;
+  }
+
+  state = 'listening'; fixing = false; cur = null;
+  curTarget = S.sents[S.idx];
+  finals = [];
+  restarts = 0; stopWanted = false; hardFail = false;
+
+  try{ getRec().start(); startMeter(); }
+  catch(e){
+    /* 앞의 인식이 아직 안 끝났으면 잠깐 뒤에 다시 시도합니다 */
+    try{ recInst.stop(); }catch(e2){}
+    setTimeout(()=>{
+      try{ getRec().start(); startMeter(); }
+      catch(e3){
+        state = 'idle';
+        note('마이크를 시작하지 못했어요. 「녹음 시작」을 한 번 더 눌러 보세요.', 'bad');
+        paintButtons();
+      }
+    }, 350);
+  }
+}
+
+function stopListen(){
+  if(state !== 'listening') return;
+  stopWanted = true;
+  status('rec', '<span class="reddot"></span><span><b>녹음을 마쳤습니다.</b> 채점하고 있어요…</span>');
+  clearTimeout(autoStop);
+  try{ recInst && recInst.stop(); }catch(e){ finishListen(finals.join(' ').trim()); }
+}
+
+function finishListen(heard){
+  if(state !== 'listening') return;
+  clearInterval(tick); clearTimeout(autoStop);
+  stopMeter(); status(null);
+  $('#live').classList.add('hidden');
+
+  if(hardFail){                      /* 마이크가 막혀 아예 못 들은 경우 */
+    state = 'idle'; cur = null;
+    renderRead();
+    return;
+  }
+  S.rec[S.idx].t++;
+  cur = grade(S.sents[S.idx], heard);
+  state = 'scored'; fixing = false;
+  afterGrade();
+}
+
+/* =========================================================================
+   [7] 손으로 채점하기
+   ========================================================================= */
+function startManual(){
+  if(!S.sents.length || state === 'marking') return;
+  clearNote();
+  $('#resultCard').classList.add('hidden');
+  S.rec[S.idx].t++;
+  cur = grade(S.sents[S.idx], S.sents[S.idx]);   /* 다 맞은 상태에서 시작 */
+  state = 'marking'; fixing = true;
+  status('mark', '<span><b>손으로 채점하는 중입니다.</b> 학생이 읽는 동안 <b>틀리게 읽은 글자</b>를 눌러 표시하세요. 다 되면 「채점 끝내기」를 누릅니다.</span>');
+  renderRead();
+}
+function finishManual(){
+  if(state !== 'marking') return;
+  status(null);
+  cur.acc = accFromSims(cur);
+  cur.heard = []; cur.byHand = true;
+  state = 'scored'; fixing = false;
+  afterGrade();
+}
+
+/* 채점이 끝난 뒤 공통으로 하는 일 */
+function afterGrade(){
+  const r = S.rec[S.idx];
+  if(cur.acc > r.b) r.b = cur.acc;
+
+  /* 글자를 틀린 낱말을 모아 둡니다 */
+  const bad = new Set();
+  cur.tSyl.forEach((ch, si)=>{ if(cur.sims[si] < NEAR_T) bad.add(cur.tWord[si]); });
+  bad.forEach(wi=>{
+    const w = norm(cur.wordText[wi]) || cur.wordText[wi];
+    S.wrong[w] = (S.wrong[w] || 0) + 1;
+  });
+
+  save();
+  renderRead();
+  showResult();
+  renderLog();
+}
+
+/* =========================================================================
+   [8] 점수 주기 · 넘어가기
+   ========================================================================= */
+function award(){
+  const r = S.rec[S.idx];
+  if(r.p) return 0;                      /* 이미 받은 문장은 다시 주지 않습니다 */
+  const okSyl = cur.sims.filter(s => s >= OK_T).length;
+  const bonus = (r.t === 1) ? S.set.bonus : 0;
+  const pts = okSyl * S.set.ppw + bonus;
+  r.p = true; r.e = pts;
+  S.points += pts;
+  $('#pts').textContent = S.points;
+  const pop = $('#pop');
+  pop.textContent = '+' + pts;
+  pop.classList.remove('go'); void pop.offsetWidth; pop.classList.add('go');
+  save();
+  return pts;
+}
+function goTo(k){
+  S.idx = Math.max(0, Math.min(S.sents.length - 1, k));
+  state = 'idle'; cur = null; fixing = false;
+  $('#resultCard').classList.add('hidden');
+  $('#live').classList.add('hidden');
+  status(null); clearNote();
+  save(); renderRead();
+}
+
+/* =========================================================================
+   [9] 읽어 주기
+   ========================================================================= */
+function speak(text){
+  if(!window.speechSynthesis || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = LANG;
+  u.rate = (S.set.rate || 85) / 100;
+  const v = speechSynthesis.getVoices().find(x => (x.lang||'').toLowerCase().startsWith('ko'));
+  if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+/* =========================================================================
+   [10] 이야기 넣기
+   ========================================================================= */
+function splitSentences(text){
+  return String(text||'')
+    .replace(/\r/g,'')
+    .split(/\n+/)
+    .flatMap(line => line.split(/(?<=[.!?…。])\s+/))
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+function fillLines(list, title){
+  $('#lines').value = list.join('\n');
+  if(title !== undefined) $('#title').value = title;
+  lineInfo();
+}
+function lineInfo(){
+  const list = $('#lines').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const longOnes = list.filter(s => s.split(/\s+/).length > 13).length;
+  $('#lineInfo').textContent = list.length
+    ? list.length + '문장' + (longOnes ? ' · 긴 문장 ' + longOnes + '개는 나누는 것이 좋습니다' : '')
+    : '아직 문장이 없습니다.';
+}
+function startStory(){
+  const list = $('#lines').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!list.length){ alert('문장이 없습니다. 글을 넣고 「문장으로 나누기」를 눌러 주세요.'); return; }
+  if(S.sents.length && !confirm('새 이야기를 시작하면 이 이야기의 문장 기록은 지워집니다.\n(모은 점수는 그대로 남습니다)')) return;
+  S.title = $('#title').value.trim() || '이야기';
+  S.sents = list;
+  S.rec = blankRec(list.length);
+  S.idx = 0;
+  save();
+  tab('read');
+  goTo(0);
+}
+
+/* =========================================================================
+   이야기를 「주소」에 담기
+   ─ 선생님이 만든 이야기를 주소 뒤에 붙여 학생에게 링크로 보냅니다.
+     학생이 그 링크를 열면 이야기가 저절로 들어갑니다.
+     모은 점수는 그대로 남고, 같은 링크를 다시 열어도 기록이 지워지지 않습니다.
+   ========================================================================= */
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64dec(t){
+  const pad = t.replace(/-/g,'+').replace(/_/g,'/');
+  const bin = atob(pad);
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+function storyLink(title, list){
+  const code = b64enc(JSON.stringify({ t:title, s:list }));
+  return location.origin + location.pathname + '#s=' + code;
+}
+/* 주소에 이야기가 들어 있으면 꺼내 옵니다 */
+function storyFromLink(){
+  const m = (location.hash || '').match(/^#s=(.+)$/);
+  if(!m) return null;
+  try{
+    const o = JSON.parse(b64dec(m[1]));
+    if(o && Array.isArray(o.s) && o.s.length) return { title:String(o.t||'이야기'), list:o.s.map(String), sig:m[1] };
+  }catch(e){}
+  return null;
+}
+
+/* 프롬프트는 한 곳에서 만듭니다. kind='json' 은 앱이 직접 쓸 때,
+   kind='plain' 은 선생님이 ChatGPT에 붙여넣을 때입니다. */
+function makePrompt(kind){
+  const topic = $('#topic').value.trim() || '학교 생활';
+  const base =
+    '고등학교 특수학급 학생이 소리 내어 읽기 연습을 할 짧은 이야기를 써 줘.\n' +
+    '주제: ' + topic + '\n' +
+    '문장 수: ' + $('#cnt').value + '개\n' +
+    '문장 길이: ' + $('#lvl').value + '\n' +
+    '조건: 쉬운 낱말만 쓴다. 한 문장에 한 가지 내용만 담는다. 어린아이 말투는 쓰지 않는다.\n' +
+    '숫자와 영어는 쓰지 않고 한글로 풀어 쓴다. 따옴표와 괄호는 쓰지 않는다.\n';
+  if(kind === 'plain'){
+    return base +
+      '한 줄에 한 문장씩만 써 줘. 번호, 제목, 설명, 인사말은 붙이지 마. 문장만 그대로 줘.';
+  }
+  return base +
+    '아래 형식의 JSON만 답한다. 설명이나 백틱은 붙이지 않는다.\n' +
+    '{"title":"제목","sentences":["문장1","문장2"]}';
+}
+
+/* 글 복사하기 — 브라우저가 막으면 글상자에 넣어 직접 복사하게 합니다 */
+async function copyText(text, msgEl, okMsg){
+  try{
+    await navigator.clipboard.writeText(text);
+    msgEl.textContent = okMsg;
+    return true;
+  }catch(e){}
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    msgEl.textContent = ok ? okMsg : '복사가 막혀 있습니다. 글상자에서 직접 골라 복사해 주세요.';
+    return ok;
+  }catch(e){
+    msgEl.textContent = '복사가 막혀 있습니다. 글상자에서 직접 골라 복사해 주세요.';
+  }
+  return false;
+}
+
+async function genStory(){
+  const topic = $('#topic').value.trim();
+  if(!topic){ $('#genMsg').textContent = '무엇에 대한 이야기인지 먼저 써 주세요.'; return; }
+  const btn = $('#gen');
+  btn.disabled = true; btn.textContent = '만드는 중…';
+  $('#genMsg').textContent = '이야기를 만들고 있습니다. 20초쯤 걸립니다.';
+  const prompt = makePrompt('json');
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{ role:'user', content:prompt }]
+      })
+    });
+    if(!res.ok) throw new Error('bad');
+    const data = await res.json();
+    const text = (data.content||[]).map(x => x.type === 'text' ? x.text : '').join('\n');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const obj = JSON.parse(clean.slice(clean.indexOf('{'), clean.lastIndexOf('}')+1));
+    const list = (obj.sentences||[]).map(s => String(s).trim()).filter(Boolean);
+    if(!list.length) throw new Error('empty');
+    fillLines(list, obj.title || topic);
+    $('#genMsg').textContent = '만들었습니다. 아래에서 문장을 살펴본 뒤 「이 이야기로 읽기 시작」을 누르세요.';
+  }catch(e){
+    $('#genMsg').textContent =
+      '이야기를 만들지 못했습니다. 이 기능은 클로드 화면(웹 링크)에서만 됩니다. ' +
+      '내려받은 파일에서는 ChatGPT에서 만든 이야기를 위쪽 칸에 붙여넣어 주세요.';
+  }finally{
+    btn.disabled = false; btn.textContent = '이야기 만들기';
+  }
+}
+
+/* =========================================================================
+   [11] 기록
+   ========================================================================= */
+function renderLog(){
+  const done = S.rec.filter(r => r.p).length;
+  const tries = S.rec.reduce((a,r)=>a+r.t, 0);
+  const read = S.rec.filter(r=>r.t).map(r=>r.b);
+  const avg = read.length ? Math.round(read.reduce((a,b)=>a+b,0)/read.length*100) : 0;
+  $('#sum').textContent = S.sents.length
+    ? '통과한 문장 ' + done + ' / ' + S.sents.length + ' · 읽은 횟수 모두 ' + tries + '번 · 가장 잘한 정확도 평균 ' + avg + '% · 모은 점수 ' + S.points + '점'
+    : '아직 이야기가 없습니다.';
+
+  const tb = $('#tbl').querySelector('tbody');
+  tb.innerHTML = '';
+  S.sents.forEach((s, k)=>{
+    const r = S.rec[k] || { t:0, b:0, p:false, e:0 };
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="n">' + (k+1) + '</td>' +
+      '<td>' + escapeHtml(s.length > 34 ? s.slice(0,34) + '…' : s) + '</td>' +
+      '<td class="n">' + (r.t || '') + '</td>' +
+      '<td class="n">' + (r.t ? Math.round(r.b*100) + '%' : '') + '</td>' +
+      '<td class="' + (r.p ? 'tagpass' : 'tagwait') + '">' + (r.p ? '통과' : (r.t ? '아직' : '')) + '</td>' +
+      '<td class="n">' + (r.e || '') + '</td>';
+    tb.appendChild(tr);
+  });
+
+  const list = Object.entries(S.wrong).sort((a,b)=>b[1]-a[1]).slice(0, 24);
+  const box = $('#wrongList');
+  box.innerHTML = '';
+  if(!list.length){ box.innerHTML = '<span class="hint">아직 없습니다.</span>'; return; }
+  list.forEach(([w,c])=>{
+    const el = document.createElement('span');
+    el.className = 'chip';
+    el.innerHTML = escapeHtml(w) + ' <b>' + c + '</b>';
+    el.title = '눌러서 들어 보기';
+    el.onclick = ()=> speak(w);
+    box.appendChild(el);
+  });
+}
+
+function logText(){
+  const rows = [['번호','문장','읽은횟수','최고정확도','통과','얻은점수']];
+  S.sents.forEach((s,k)=>{
+    const r = S.rec[k] || {};
+    rows.push([k+1, s, r.t||0, Math.round((r.b||0)*100), r.p?'통과':'', r.e||0]);
+  });
+  rows.push([]);
+  rows.push(['자주 걸린 낱말','틀린 횟수']);
+  Object.entries(S.wrong).sort((a,b)=>b[1]-a[1]).forEach(([w,c])=> rows.push([w,c]));
+  return rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+}
+function download(name, text, mime){
+  try{
+    const blob = new Blob(['\uFEFF' + text], { type:(mime||'text/plain') + ';charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+    $('#fileMsg').textContent = name + ' 을(를) 내려받았습니다.';
+  }catch(e){
+    $('#fileMsg').textContent = '이 화면에서는 파일 내려받기가 막혀 있습니다. 기기에 저장한 파일에서 다시 눌러 주세요. 지금은 「기록 복사하기」를 쓰면 됩니다.';
+  }
+}
+function stamp(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear() + p(d.getMonth()+1) + p(d.getDate());
+}
+
+/* =========================================================================
+   [12] 탭·버튼 이어 붙이기
+   ========================================================================= */
+function tab(name){
+  $$('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  ['read','prep','log','set'].forEach(k => $('#p-' + k).classList.toggle('hidden', k !== name));
+  if(name === 'log') renderLog();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+$$('nav.tabs button').forEach(b => b.onclick = ()=> tab(b.dataset.tab));
+$('#num').oninput = e => { S.num = e.target.value.replace(/[^0-9]/g,''); e.target.value = S.num; save(); };
+
+$$('#modepick button').forEach(b => b.onclick = ()=> setMode(b.dataset.mode));
+$('#recStart').onclick = startListen;
+$('#recStop').onclick  = stopListen;
+$('#handStart').onclick = startManual;
+$('#handStop').onclick  = finishManual;
+
+$('#listen').onclick = ()=> speak(S.sents[S.idx] || '');
+$('#fix').onclick = ()=>{
+  if(state !== 'scored') return;
+  fixing = !fixing;
+  if(fixing){
+    status('mark', '<span><b>채점을 고치는 중입니다.</b> 글자를 눌러 맞음·틀림을 바꾸세요.</span>');
+  }else{
+    status(null);
+    cur.acc = accFromSims(cur);
+    const r = S.rec[S.idx];
+    if(cur.acc > r.b) r.b = cur.acc;
+    save();
+  }
+  renderRead();
+  showResult();
+};
+$('#skip').onclick = ()=>{
+  if(S.idx < S.sents.length - 1) goTo(S.idx + 1);
+  else note('마지막 문장입니다.', 'good');
+};
+
+/* 글자 누르기 — 고치는 중이면 맞음·틀림 바꾸기, 아니면 낱말 들어 보기 */
+$('#sent').onclick = (e)=>{
+  const el = e.target.closest('.sy');
+  if(!el || !cur || el.dataset.si === undefined) return;
+  const si = +el.dataset.si;
+  if(fixing){
+    cur.sims[si] = cur.sims[si] >= OK_T ? 0 : 1;
+    if(state === 'scored'){ cur.acc = accFromSims(cur); showResult(); }
+    renderRead();
+  }else if(state === 'scored'){
+    speak(cur.wordText[cur.tWord[si]]);
+  }
+};
+
+$('#next').onclick = ()=>{
+  award();
+  if(S.idx < S.sents.length - 1) goTo(S.idx + 1);
+  else{
+    goTo(S.idx);
+    note('이야기를 끝까지 읽었습니다. 모은 점수 ' + S.points + '점!', 'good');
+  }
+  renderLog();
+};
+$('#again').onclick = ()=>{
+  const failed = cur && (cur.acc * 100) < S.set.pass;
+  if(failed && S.set.scope === 'story' && S.idx > 0){
+    if(confirm('처음부터 다시 읽습니다. 괜찮을까요?')) goTo(0);
+    else goTo(S.idx);
+  }else goTo(S.idx);
+};
+
+$('#split').onclick = ()=>{
+  const list = splitSentences($('#raw').value);
+  if(!list.length){ alert('나눌 글이 없습니다.'); return; }
+  fillLines(list, $('#title').value.trim() || list[0].slice(0, 12));
+};
+$('#sample').onclick = ()=>{ $('#raw').value = SAMPLE.sents.join('\n'); fillLines(SAMPLE.sents, SAMPLE.title); };
+$('#gen').onclick = genStory;
+$('#copyPrompt').onclick = async ()=>{
+  const t = makePrompt('plain');
+  const ok = await copyText(t, $('#genMsg'),
+    '복사했습니다. ChatGPT에 붙여넣고, 나온 이야기를 위쪽 「글 붙여넣기」 칸에 도로 붙여넣은 뒤 「문장으로 나누기」를 누르세요.');
+  /* 복사가 막힌 기기에서는 글상자에 넣어 손으로 고르게 합니다 */
+  if(!ok){ $('#raw').value = t; $('#raw').focus(); $('#raw').select(); }
+};
+$('#makeLink').onclick = async ()=>{
+  const list = $('#lines').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(!list.length){ $('#copyMsg').textContent = '먼저 문장을 넣어 주세요.'; return; }
+  if(location.protocol === 'file:'){
+    $('#copyMsg').textContent =
+      '이 파일은 기기에 저장된 파일이라 주소를 만들 수 없습니다. 넷리파이 등에 올린 뒤 그 주소에서 눌러 주세요. ' +
+      '지금은 「글로 복사하기」를 쓰시면 됩니다.';
+    return;
+  }
+  const url = storyLink($('#title').value.trim() || '이야기', list);
+  if(url.length > 1800){
+    $('#copyMsg').textContent = '이야기가 너무 길어 주소에 담기 어렵습니다. 문장 수를 줄이거나 「글로 복사하기」를 써 주세요.';
+    return;
+  }
+  const ok = await copyText(url, $('#copyMsg'),
+    '주소를 복사했습니다. 클래스룸이나 메신저로 학생에게 보내면, 링크를 여는 것만으로 이 이야기가 들어갑니다.');
+  if(!ok){ $('#raw').value = url; $('#raw').focus(); $('#raw').select(); }
+};
+$('#copyStory').onclick = ()=>{
+  const t = ($('#title').value.trim() || '이야기') + '\n' + $('#lines').value.trim();
+  copyText(t, $('#copyMsg'),
+    '이야기를 복사했습니다. 다른 기기의 앱에서 「글 붙여넣기」 칸에 붙여넣으면 그대로 옮겨집니다.');
+};
+$('#lines').oninput = lineInfo;
+$('#start').onclick = startStory;
+$('#tts2').onclick = ()=>{
+  const first = $('#lines').value.split('\n').map(s=>s.trim()).filter(Boolean)[0];
+  if(first) speak(first);
+};
+
+$('#saveJson').onclick = ()=> download(
+  (S.num || '0') + '번_' + stamp() + '_읽기기록.json', JSON.stringify(S, null, 2), 'application/json');
+$('#saveCsv').onclick = ()=> download(
+  (S.num || '0') + '번_' + stamp() + '_읽기기록.csv', logText(), 'text/csv');
+$('#copyLog').onclick = async ()=>{
+  try{
+    await navigator.clipboard.writeText(logText());
+    $('#fileMsg').textContent = '기록을 복사했습니다. 문서나 패들렛에 붙여넣으세요.';
+  }catch(e){
+    $('#fileMsg').textContent = '복사가 막혀 있습니다. 「표(CSV)로 저장」을 써 주세요.';
+  }
+};
+$('#resetRec').onclick = ()=>{
+  if(!confirm('이 이야기의 읽은 기록을 지웁니다. 모은 점수는 그대로 남습니다.')) return;
+  S.rec = blankRec(S.sents.length); S.idx = 0; save(); goTo(0); renderLog();
+};
+$('#resetAll').onclick = ()=>{
+  if(!confirm('점수와 기록을 모두 지웁니다. 되돌릴 수 없습니다.')) return;
+  if(!confirm('정말 지울까요?')) return;
+  S.points = 0; S.wrong = {}; S.rec = blankRec(S.sents.length); S.idx = 0;
+  save(); paint(); goTo(0); renderLog();
+};
+
+$$('.opt').forEach(box=>{
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      const k = box.dataset.set;
+      S.set[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v;
+      if(!S.set.hold && state !== 'listening') releaseMic();
+      save(); paint(); renderRead();
+    };
+  });
+});
+$$('.foot button').forEach(b => b.onclick = ()=>{ S.fs = +b.dataset.fs; save(); paint(); });
+
+/* 무엇이 마이크를 막고 있는지 하나씩 짚어 봅니다.
+   막히는 자리는 크게 네 군데입니다.
+   ① 이 화면이 액자(iframe) 안이라 브라우저가 아예 막음
+   ② 주소가 file:// 이라 브라우저가 안전하지 않다고 봄
+   ③ 브라우저 사이트 권한이 「차단」
+   ④ 윈도우·맥 자체의 마이크 권한이 꺼져 있거나 다른 프로그램이 쓰는 중 */
+function inFrame(){
+  try{ return window.self !== window.top; }catch(e){ return true; }
+}
+function policyOK(){
+  try{
+    const pp = document.permissionsPolicy || document.featurePolicy;
+    if(pp && pp.allowsFeature) return pp.allowsFeature('microphone');
+  }catch(e){}
+  return null;
+}
+function row(label, value, bad){
+  return '<div style="display:flex;gap:.5rem;padding:.2rem 0;border-bottom:1px solid var(--line)">' +
+    '<span style="min-width:9.5rem">' + label + '</span>' +
+    '<b style="color:' + (bad ? 'var(--miss)' : 'var(--ink)') + '">' + value + '</b></div>';
+}
+function verdict(text, kind){
+  const el = $('#verdictBox');
+  el.className = 'banner ' + (kind || '');
+  el.innerHTML = text;
+  el.classList.remove('hidden');
+}
+
+async function fullDiag(){
+  const frame = inFrame();
+  const pol = policyOK();
+  const proto = location.protocol;
+  let out = '';
+
+  out += row('브라우저 목소리 인식', SR ? '됩니다' : '안 됩니다 (크롬·엣지를 쓰세요)', !SR);
+  out += row('읽어 주기', window.speechSynthesis ? '됩니다' : '안 됩니다', !window.speechSynthesis);
+  out += row('인터넷', navigator.onLine ? '연결됨' : '끊김', !navigator.onLine);
+  out += row('주소 방식', proto, false);
+  out += row('안전한 화면인가', window.isSecureContext ? '예' : '아니오', !window.isSecureContext);
+  out += row('액자(iframe) 안인가', frame ? '예' : '아니오', frame);
+  out += row('액자가 마이크 허용', pol === null ? '알 수 없음' : (pol ? '허용' : '막힘'), pol === false);
+
+  let permState = '알 수 없음';
+  try{
+    const q = await navigator.permissions.query({ name:'microphone' });
+    permState = q.state === 'granted' ? '허용됨' : (q.state === 'denied' ? '차단됨' : '물어봄');
+  }catch(e){}
+  out += row('사이트 마이크 권한', permState, permState === '차단됨');
+
+  let errName = '';
+  try{
+    const st = await navigator.mediaDevices.getUserMedia({ audio:true });
+    st.getTracks().forEach(t => t.stop());
+    out += row('마이크 열기', '성공', false);
+  }catch(e){
+    errName = e && e.name ? e.name : '알 수 없는 오류';
+    out += row('마이크 열기', '실패 (' + errName + ')', true);
+  }
+  $('#diag').innerHTML = out;
+
+  /* 짚어 드리기 — 위에서부터 가장 먼저 걸리는 것 하나만 알려 줍니다 */
+  if(!SR){
+    verdict('<b>브라우저가 문제입니다.</b> 이 브라우저는 목소리 인식을 지원하지 않습니다. ' +
+            '<b>크롬</b>이나 <b>엣지</b>로 이 파일을 열어 주세요. 그동안은 「손으로 채점」을 쓰면 수업은 그대로 됩니다.', 'bad');
+    return;
+  }
+  if(frame && pol === false){
+    verdict('<b>이 화면(웹 미리보기)이 마이크를 막고 있습니다.</b> 브라우저 설정을 아무리 바꿔도 이 화면에서는 열리지 않습니다. ' +
+            '이 파일을 <b>기기에 내려받아</b> 크롬으로 직접 열어 주세요. 그러면 마이크를 물어보는 창이 뜹니다.', 'bad');
+    return;
+  }
+  if(errName === 'NotAllowedError'){
+    if(permState === '차단됨'){
+      verdict('<b>사이트 권한이 「차단」으로 남아 있습니다.</b> 주소창 왼쪽 자물쇠(또는 슬라이더) → 마이크 → <b>허용</b>으로 바꾼 뒤, ' +
+              '반드시 <b>Ctrl + F5로 새로고침</b>해야 바뀐 값이 먹습니다. 새로고침을 안 하면 그대로 막힌 채입니다.', 'bad');
+    }else if(proto === 'file:'){
+      verdict('<b>파일을 두 번 눌러 연 화면(file://)이라 막혔습니다.</b> 크롬이 이 방식에서는 마이크를 잘 열어 주지 않습니다. ' +
+              '이 파일을 학교 홈페이지나 무료 호스팅(넷리파이 드롭 등)에 올려 <b>http로 시작하는 주소</b>로 열면 바로 됩니다. ' +
+              '그전까지는 「손으로 채점」으로 수업하실 수 있습니다.', 'bad');
+    }else{
+      verdict('<b>마이크 권한이 거절됐습니다.</b> 주소창 왼쪽 자물쇠 → 마이크 → 허용으로 바꾸고 <b>새로고침</b>해 주세요. ' +
+              '그래도 안 되면 윈도우 <b>설정 → 개인 정보 → 마이크</b>에서 「앱이 마이크에 액세스하도록 허용」이 켜져 있는지 보세요.', 'bad');
+    }
+    return;
+  }
+  if(errName === 'NotFoundError' || errName === 'OverconstrainedError'){
+    verdict('<b>마이크를 찾지 못했습니다.</b> 마이크가 꽂혀 있는지, 헤드셋 잭이 끝까지 들어갔는지 확인해 주세요.', 'bad');
+    return;
+  }
+  if(errName === 'NotReadableError'){
+    verdict('<b>다른 프로그램이 마이크를 쓰고 있습니다.</b> 줌·팀즈·녹음기 같은 것을 모두 끄고 다시 눌러 보세요.', 'bad');
+    return;
+  }
+  if(errName){
+    verdict('<b>마이크를 열지 못했습니다(' + errName + ').</b> 크롬으로 열었는지, 다른 프로그램이 마이크를 쓰고 있지 않은지 확인해 주세요.', 'bad');
+    return;
+  }
+  verdict('<b>마이크는 잘 열립니다.</b> 「읽기」 탭에서 「녹음 시작」을 누르면 됩니다. ' +
+          '그래도 글자가 안 잡히면 인터넷 연결을 확인해 주세요. 목소리 인식은 인터넷이 있어야 합니다.', 'good');
+}
+$('#micTest').onclick = fullDiag;
+
+function diag(){
+  $('#diag').innerHTML =
+    row('브라우저 목소리 인식', SR ? '됩니다' : '안 됩니다 (크롬·엣지를 쓰세요)', !SR) +
+    row('읽어 주기', window.speechSynthesis ? '됩니다' : '안 됩니다', !window.speechSynthesis) +
+    row('인터넷', navigator.onLine ? '연결됨' : '끊김', !navigator.onLine) +
+    '<p style="margin-top:.5rem">마이크가 안 되면 위의 「마이크 진단하기」를 눌러 주세요.</p>';
+}
+
+/* =========================================================================
+   [13] 시작
+   ========================================================================= */
+load();
+buildMeter();
+/* 링크로 받은 이야기가 있으면 넣습니다.
+   같은 링크를 새로고침해도 이미 읽은 기록은 그대로 둡니다. */
+const linked = storyFromLink();
+if(linked && S.linkSig !== linked.sig){
+  S.linkSig = linked.sig;
+  S.title = linked.title;
+  S.sents = linked.list;
+  S.rec = blankRec(S.sents.length);
+  S.idx = 0;
+  save();
+}
+if(!S.sents.length){
+  S.title = SAMPLE.title; S.sents = SAMPLE.sents.slice(); S.rec = blankRec(S.sents.length);
+}
+if(S.rec.length !== S.sents.length) S.rec = blankRec(S.sents.length);
+fillLines(S.sents, S.title);
+$('#raw').value = S.sents.join('\n');
+
+if(!SR){
+  voiceOK = false;
+  S.set.mode = 'hand';
+  note('이 브라우저는 목소리 인식을 지원하지 않습니다. 크롬이나 엣지로 열면 녹음 채점이 됩니다. 지금은 「손으로 채점」을 쓰세요.');
+}
+/* 지금 어디서 열려 있는지에 따라 안내를 다르게 보여 줍니다 */
+(function whereAmI(){
+  const box = $('#whereMsg');
+  if(inFrame()){
+    box.className = 'banner';
+    box.innerHTML = '<b>지금은 클로드 화면입니다.</b> 여기서는 「여기서 바로 만들기」가 되지만 <b>마이크 녹음은 막혀 있습니다.</b> ' +
+      '이야기를 만든 뒤 아래 「이 이야기 복사하기」로 옮겨, 내려받은 파일에 붙여넣어 쓰세요.';
+  }else{
+    box.className = 'banner good';
+    box.innerHTML = '<b>내려받은 파일입니다. 마이크 녹음이 됩니다.</b> 다만 「여기서 바로 만들기」는 이 화면에서 되지 않습니다. ' +
+      '<b>「ChatGPT에 넣을 글 복사하기」</b>를 눌러 ChatGPT에서 이야기를 받아 오세요.';
+    $('#gen').disabled = true;
+  }
+})();
+paint(); renderRead(); renderLog(); diag();
+if(linked && S.linkSig === linked.sig && S.rec.every(r => !r.t)){
+  note('선생님이 보낸 이야기 「' + S.title + '」 ' + S.sents.length + '문장을 받았습니다. 「녹음 시작」을 누르고 읽어 보세요.', 'good');
+}
+if(window.speechSynthesis) speechSynthesis.onvoiceschanged = ()=>{};
+window.addEventListener('pagehide', releaseMic);
+</script>
+</body>
+</html>
